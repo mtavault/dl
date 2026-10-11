@@ -10,9 +10,6 @@ import { existsSync } from 'node:fs';
 import pino from 'pino';
 import { getConnInfo } from '@hono/bun';
 
-const dateFormatter = new Intl.DateTimeFormat([], { timeZone: 'Europe/Berlin', year: 'numeric', month: '2-digit', day: '2-digit', second: 'numeric', minute: 'numeric', hour: 'numeric' });
-const now = () => dateFormatter.format(new Date());
-
 const logger = pino({
   timestamp: pino.stdTimeFunctions.isoTime,
   name: cluster.isWorker ? `worker ${cluster.worker?.id}` : 'primary',
@@ -81,7 +78,7 @@ if (cluster.isPrimary) {
       throw new HTTPException(404, { message: 'Version not found' });
     }
 
-    const filePath = join(appConfig.storage_location, '.maps', map.id, version.number + '.zip');
+    const filePath = join(appConfig.storage_location, map.id, version.number + '.zip');
 
     const fpChild = vChild.child({
       path: filePath,
