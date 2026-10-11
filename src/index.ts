@@ -8,6 +8,8 @@ import { HTTPException } from 'hono/http-exception';
 import { join } from 'node:path';
 import { existsSync } from 'node:fs';
 
+const dateFormatter = new Intl.DateTimeFormat([], { timeZone: 'Europe/Berlin', year: 'numeric', month: '2-digit', day: '2-digit', second: 'numeric', minute: 'numeric', hour: 'numeric' });
+
 if (cluster.isPrimary) {
   const instances = availableParallelism();
   for (let i = 0; i < instances; i++) {
@@ -25,7 +27,7 @@ if (cluster.isPrimary) {
 
   app.get('/', (c) => c.text('ok'));
 
-  app.get(':id', async (c) => {
+  app.get('map/:id', async (c) => {
     const id = c.req.param('id');
     const url = new URL(`maps/${id}`, appConfig.mtavault_api);
     const response = await fetch(url.href);
@@ -40,6 +42,7 @@ if (cluster.isPrimary) {
 
     const filePath = join(appConfig.storage_location, '.maps', map.id, version.number + '.zip');
 
+    console.debug(`[${dateFormatter.format(new Date())}] ${filePath}`);
     if (!existsSync(filePath)) throw new HTTPException(404, { message: 'File not found' });
 
     c.header('Cache-Control', 'public, max-age=2592000');
