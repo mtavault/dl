@@ -7,11 +7,34 @@ import appConfig from '../app.config';
 import { HTTPException } from 'hono/http-exception';
 import { join } from 'node:path';
 import { existsSync } from 'node:fs';
+import pino from 'pino';
 
 const dateFormatter = new Intl.DateTimeFormat([], { timeZone: 'Europe/Berlin', year: 'numeric', month: '2-digit', day: '2-digit', second: 'numeric', minute: 'numeric', hour: 'numeric' });
+const now = () => dateFormatter.format(new Date());
+
+const logger = pino({
+  timestamp: pino.stdTimeFunctions.isoTime,
+  name: cluster.isWorker ? `worker ${cluster.worker?.id}` : 'primary',
+  transport: {
+    target: 'pino-pretty',
+  },
+});
+
+type APIResponse = {
+  statusCode: number;
+  data: {
+    message?: string;
+    [key: string]: any;
+  };
+  request: {
+    method: string;
+    url: string;
+  };
+};
 
 if (cluster.isPrimary) {
   const instances = availableParallelism();
+  logger.info(`starting ${instances} workers`);
   for (let i = 0; i < instances; i++) {
     cluster.fork();
   }
@@ -29,21 +52,43 @@ if (cluster.isPrimary) {
 
   app.get('map/:id', async (c) => {
     const id = c.req.param('id');
+    const child = logger.child({ id });
     const url = new URL(`maps/${id}`, appConfig.mtavault_api);
     const response = await fetch(url.href);
-    const { data: map } = await response.json();
+    const body: APIResponse = await response.json();
+
+    if (body.statusCode !== 200) {
+      child.error('Map not found');
+      throw new HTTPException(404, { message: 'Map not found' });
+    }
+    const map = body.data;
 
     // TODO: Do further permission check with the api to check for special permissions
-    if (map.status !== 'PUBLIC') throw new HTTPException(401, { message: 'Unauthorized' });
+    if (map.status !== 'PUBLIC') {
+      child.error('Access denied');
+      throw new HTTPException(401, { message: 'Unauthorized' });
+    }
 
     const requestedVersion = c.req.query('v');
     const version = requestedVersion ? map.versions.find((v) => v.number === requestedVersion) : map.versions.at(-1);
-    if (!version) throw new HTTPException(404, { message: 'Version not found' });
+    const vChild = child.child({
+      version: version.number,
+    });
+    if (!version) {
+      vChild.error('Version not found');
+      throw new HTTPException(404, { message: 'Version not found' });
+    }
 
     const filePath = join(appConfig.storage_location, '.maps', map.id, version.number + '.zip');
 
-    console.debug(`[${dateFormatter.format(new Date())}] ${filePath}`);
-    if (!existsSync(filePath)) throw new HTTPException(404, { message: 'File not found' });
+    const fpChild = vChild.child({
+      path: filePath,
+    });
+    if (!existsSync(filePath)) {
+      fpChild.error('File not found');
+      throw new HTTPException(404, { message: 'File not found' });
+    }
+    fpChild.info('Sending file');
 
     const file = Bun.file(filePath);
     const newFileName = map.fileName
