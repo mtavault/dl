@@ -45,8 +45,13 @@ if (cluster.isPrimary) {
     console.debug(`[${dateFormatter.format(new Date())}] ${filePath}`);
     if (!existsSync(filePath)) throw new HTTPException(404, { message: 'File not found' });
 
-    c.header('Cache-Control', 'public, max-age=2592000');
     const file = Bun.file(filePath);
+    const newFileName = map.fileName
+      .replaceAll(/[.](?=.*[.])|(?![a-zA-Z0-9 _\[\].-])./g, '')
+      .replaceAll(' - ', '_')
+      .replaceAll(' ', '_');
+    c.header('Cache-Control', 'public, max-age=2592000');
+    c.header('Content-Disposition', `attachment; filename="${newFileName}.zip"`);
     return new Response(file, {
       headers: c.res.headers,
     });
