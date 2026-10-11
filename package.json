@@ -1,0 +1,21 @@
+{
+  "name": "file-server",
+  "module": "index.ts",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "start": "bun src/index.ts",
+    "dev": "bun --watch src/index.ts",
+    "build": "bun build src/index.ts --minify --target=bun --outfile dist/main.js"
+  },
+  "dependencies": {
+    "hono": "^4.13.13"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.4.2",
+    "@types/node": "^26.6.5"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  }
+}
