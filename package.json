@@ -9,6 +9,7 @@
     "build": "bun build src/index.ts --minify --target=bun --outfile dist/main.js"
   },
   "dependencies": {
+    "@hono/bun": "^1.0.1",
     "hono": "^4.13.13",
     "pino": "^10.4.0"
   },

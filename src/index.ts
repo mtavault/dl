@@ -8,6 +8,7 @@ import { HTTPException } from 'hono/http-exception';
 import { join } from 'node:path';
 import { existsSync } from 'node:fs';
 import pino from 'pino';
+import { getConnInfo } from '@hono/bun';
 
 const dateFormatter = new Intl.DateTimeFormat([], { timeZone: 'Europe/Berlin', year: 'numeric', month: '2-digit', day: '2-digit', second: 'numeric', minute: 'numeric', hour: 'numeric' });
 const now = () => dateFormatter.format(new Date());
@@ -52,7 +53,8 @@ if (cluster.isPrimary) {
 
   app.get('map/:id', async (c) => {
     const id = c.req.param('id');
-    const child = logger.child({ id });
+    const connInfo = getConnInfo(c);
+    const child = logger.child({ ip: connInfo.remote.address, id });
     const url = new URL(`maps/${id}`, appConfig.mtavault_api);
     const response = await fetch(url.href);
     const body: APIResponse = await response.json();
@@ -88,7 +90,7 @@ if (cluster.isPrimary) {
       fpChild.error('File not found');
       throw new HTTPException(404, { message: 'File not found' });
     }
-    fpChild.info('Sending file');
+    vChild.info('Sending file');
 
     const file = Bun.file(filePath);
     const newFileName = map.fileName
