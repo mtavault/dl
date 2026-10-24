@@ -8,6 +8,8 @@ import { HTTPException } from 'hono/http-exception';
 import { join } from 'node:path';
 import { existsSync } from 'node:fs';
 import pino from 'pino';
+import { APIResponse } from './types/api-response';
+import { serveStatic } from '@hono/bun';
 
 const logger = pino({
   timestamp: pino.stdTimeFunctions.isoTime,
@@ -16,18 +18,6 @@ const logger = pino({
     target: 'pino-pretty',
   },
 });
-
-type APIResponse = {
-  statusCode: number;
-  data: {
-    message?: string;
-    [key: string]: any;
-  };
-  request: {
-    method: string;
-    url: string;
-  };
-};
 
 if (cluster.isPrimary) {
   const instances = availableParallelism();
@@ -47,10 +37,21 @@ if (cluster.isPrimary) {
 
   app.get('/', (c) => c.text('ok'));
 
+  app.use(
+    'map/*',
+    serveStatic({
+      root: join(appConfig.storage_location, 'public'),
+      rewriteRequestPath: (path) => path.replace(/^\/map/, ''),
+    }),
+  );
+
   app.get('map/:id', async (c) => {
     const id = c.req.param('id');
     const ipAddress = c.req.header('x-real-ip') || 'unknown';
+
     const child = logger.child({ ip: ipAddress, id });
+
+    // Get data from API
     const url = new URL(`maps/${id}`, appConfig.mtavault_api);
     const response = await fetch(url.href);
     const body: APIResponse = await response.json();
@@ -77,7 +78,7 @@ if (cluster.isPrimary) {
     }
 
     // Construct filepath
-    const filePath = join(appConfig.storage_location, map.id, version.number + '.zip');
+    const filePath = join(appConfig.storage_location, 'private', map.id, version.number + '.zip');
 
     const fpChild = vChild.child({ filePath });
 
