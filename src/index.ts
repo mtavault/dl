@@ -42,6 +42,9 @@ if (cluster.isPrimary) {
     serveStatic({
       root: join(appConfig.storage_location, 'public'),
       rewriteRequestPath: (path) => path.replace(/^\/map/, ''),
+      onFound: (_path, c) => {
+        c.header('Cache-Control', 'public, max-age=2592000');
+      },
     }),
   );
 
