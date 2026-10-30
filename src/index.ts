@@ -38,10 +38,10 @@ if (cluster.isPrimary) {
   app.get('/', (c) => c.text('ok'));
 
   app.use(
-    'map/*',
+    'media/*',
     serveStatic({
       root: join(appConfig.storage_location, 'public'),
-      rewriteRequestPath: (path) => path.replace(/^\/map/, ''),
+      rewriteRequestPath: (path) => path.replace(/^\/media/, ''),
       onFound: (_path, c) => {
         c.header('Cache-Control', 'public, max-age=2592000');
       },
