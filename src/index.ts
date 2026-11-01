@@ -67,7 +67,7 @@ if (cluster.isPrimary) {
     const url = new URL(`resource/${id}`, appConfig.mtavault_api);
     const response = await fetch(url.href);
     const body: APIResponse = await response.json();
-
+    console.log(body);
     if (!body.id) {
       child.error('Map not found');
       throw new HTTPException(404, { message: 'Map not found' });
