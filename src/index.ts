@@ -10,6 +10,7 @@ import { existsSync } from 'node:fs';
 import pino from 'pino';
 import { APIResponse } from './types/api-response';
 import { serveStatic } from '@hono/bun';
+import { cors } from 'hono/cors';
 
 const logger = pino({
   timestamp: pino.stdTimeFunctions.isoTime,
@@ -35,6 +36,14 @@ if (cluster.isPrimary) {
     }),
   );
 
+  app.use(
+    cors({
+      origin: '*',
+      credentials: false,
+      maxAge: 86400,
+    }),
+  );
+
   app.get('/', (c) => c.text('ok'));
 
   app.use(
@@ -55,18 +64,18 @@ if (cluster.isPrimary) {
     const child = logger.child({ ip: ipAddress, id });
 
     // Get data from API
-    const url = new URL(`maps/${id}`, appConfig.mtavault_api);
+    const url = new URL(`resource/${id}`, appConfig.mtavault_api);
     const response = await fetch(url.href);
     const body: APIResponse = await response.json();
 
-    if (body.statusCode !== 200) {
+    if (!body.id) {
       child.error('Map not found');
       throw new HTTPException(404, { message: 'Map not found' });
     }
-    const map = body.data;
+    const map = body;
 
     // TODO: Do further permission check with the api to check for special permissions
-    if (map.status !== 'PUBLIC') {
+    if (map.isPrivate || !map.isDownloadable) {
       child.error('Access denied');
       throw new HTTPException(401, { message: 'Unauthorized' });
     }
@@ -81,7 +90,7 @@ if (cluster.isPrimary) {
     }
 
     // Construct filepath
-    const filePath = join(appConfig.storage_location, 'private', map.id, version.number + '.zip');
+    const filePath = join(appConfig.storage_location, 'private', map.id, 'versions', version.number + '.zip');
 
     const fpChild = vChild.child({ filePath });
 
